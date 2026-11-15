@@ -84,6 +84,28 @@ export function routeMissedPoints(route) {
   return missedPoints(route, findProcedure, build);
 }
 
+/* ==== procLegPath ==== ルートの i 番目の点が手順の点なら、前の点からその点までの作図の線（旋回・アーク・ラジアルを含む折れ線）。手順の点でなければ null
+ * 手順の最初の点は手順の始まり（SID は滑走路端、復行は MAPt）から。待機の周回は含めない（0.2.8 デモの自動飛行） */
+export function procLegPath(route, i) {
+  const p = route.points[i];
+  const proc = p?.proc && findProcedure(p.proc.id);
+  if (!proc || p.proc.partId === 'start') return null;
+  const missed = p.mark === 'MA';
+  const segs = build(proc).segments.filter((s) => !s.hold && !!s.dashed === missed && !s.guide);
+  const k = segs.map((s) => s.partId).lastIndexOf(p.proc.partId);
+  if (k < 0) return null;
+  const q = route.points[i - 1];
+  const j = q?.proc?.id === proc.id && q.proc.partId !== 'start' && (q.mark === 'MA') === missed ? segs.map((s) => s.partId).lastIndexOf(q.proc.partId) : -1;
+  const pts = segs.slice(j + 1, k + 1).flatMap((s) => s.pts);
+  return pts.length >= 2 ? pts : null;
+}
+
+/* ==== routeHoldLoop ==== ルートの APP の復行の最後の待機の周回（折れ線。始まりと終わりが待機フィックス）。無ければ null */
+export function routeHoldLoop(route) {
+  const proc = route.procs?.APP && findProcedure(route.procs.APP);
+  return proc ? build(proc).segments.find((s) => s.hold)?.pts || null : null;
+}
+
 /* ==== routeProcIds ==== アクティブルートで選んだ手順（レイヤー・表示の設定に関わらず NAV で描く） */
 function routeProcIds() {
   const r = activeRoute();

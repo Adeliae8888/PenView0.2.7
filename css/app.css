@@ -387,3 +387,9 @@ label.chk { display: flex; align-items: center; gap: 4px; font-size: 12px; }
 .verify-bar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 8px 10px; margin: 6px 0; border: 1px solid #ea580c; border-radius: 8px; background: rgba(124, 45, 18, .35); color: #fed7aa; }
 #overlay .proc-unv rect { fill: #7c2d12; stroke: #ea580c; stroke-width: 1; }
 #overlay .proc-unv text { fill: #fed7aa; stroke: none; font-size: 10px; font-weight: 700; }
+/* デモの自動飛行（0.2.8） */
+.demo-bar { position: fixed; z-index: 24; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 64px); display: flex; align-items: center; gap: 4px;
+  padding: 4px 6px; border: 1px solid #a78bfa; border-radius: 10px; background: rgba(20, 16, 40, .88); }
+.demo-bar .demo-tag { color: #c4b5fd; font-weight: 700; letter-spacing: .1em; padding: 0 4px; }
+.demo-bar .demo-phase { color: #ddd6fe; min-width: 3em; font-size: 13px; }
+.demo-bar .btn.active { background: #6d28d9; border-color: #a78bfa; color: #fff; }

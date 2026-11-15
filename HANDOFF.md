@@ -1,3 +1,30 @@
+# HANDOFF 0.2.8（2026-11-15 パブリッシュ）
+
+## ユーザーの評価（0.2.7）
+- ルーラーの出来は素晴らしい。チャートの取り込みはそこそこ
+- 0.2.8 の仕様（デモの自動飛行の速度上限・3° など）は提案どおりで OK（2026-11-15）
+
+## できたこと（ユーザー決定は SPEC.md §4b）
+1. **デモ：ルートの自動飛行**
+   - js/autopilot.js（新規・計算だけ）：折れ線の先読みの点へ向かう（lookAheadNm＝旋回半径×1.2、0.4〜3nm）、旋回率はバンク 30°（steer）、戻らない最近点（nearestOnPath）、ログの区間の高度・GS（legProfile）、離陸滑走（rollStart・ROTATE 150kt）、3° の上限（経路に沿った残り距離 tdDistance）、接地（touchedDown・300ft 以下）→ 減速 → 停止
+   - js/demo.js（新規・つなぎ）：startRouteDemo／stopRouteDemo／早送り／一時停止。アクティブレグ＋次のレグの線（envFor：ルートが変わったら作り直す）、手順の区間は proc-wire の procLegPath、待機は routeHoldLoop を周回（30 周分つなぐ）、接地点（touchdown）、進入・復行の速度の上限（speedCap）
+   - gps.js：startSim に step（自動飛行の 1 秒）、setSimStep（手で外したとき）。clock.now に state.simClockMs（早送り・一時停止。保存しない）
+   - 画面：設定のデモの切替（#simMode）と説明、地図の上の DEMO の帯（#demoBar：状態・×1/×2/×4/×8・II/▶・■）
+2. **修正：ルートから飛行場を消すと、つながる手順も外れる**（ユーザー報告 2026-11-15。SID/STAR だけ残って消せなかった）
+   - route.js removePoint → dropLinkedProcs：DEP（最初の手順以外の点）を消すと SID・SID_TR、DST（最後の手順以外の点）を消すと STAR_TR・STAR・APP の選択と点を外す
+   - route-proc.js roleAd：DEP・DST は手順以外の点から見る（手順の点が先頭・末尾に残っていても飛行場で判断）
+
+## 検証
+- 単体 43/43（新規：飛行場を消すと手順も外れる、L 字の線をなぞる・フライバイ・ログの高度、ログの区間の高度と GS、離陸滑走（秒数・浮く位置）、3° の進入と接地・停止）
+- e2e-demo（新規 15 項目、百里の zip）：⑥画面の × で DST を消す → APP の点が消え SID は残る、DEP を消す → SID も消える／①滑走路で止まった状態 → 加速（向き・高度そのまま）→ 離陸時刻 → SID の線から 0.22nm 以内で上昇、×8 で時計も進む ②一時停止で位置と時計が止まる・停止で帯が消える ③H1R52 のレグから → RW21R の先 1nm で接地・停止 ④OMITT から MISSED APP → NAKAH で待機（周回の線から 0.15nm） ⑤DIRECT TO の直行線へ／手で針路を変えると自動が外れて模擬飛行が続く
+- e2e・e2e-nav・e2e-gesture・e2e-proc・e2e-route-proc・e2e-ruler・e2e-iac すべてエラー 0
+- FUNCTIONS：487 → 520。60 行超は createView のみ
+
+## 気づいたこと（未対応）
+- 取り込んだ RNP の進入の点には高度が無いので、ログの高度は巡航高度のまま（デモは 3° の上限で降りる。燃料は多めに出る）
+
+---
+
 # HANDOFF 0.2.7（2026-11-14 パブリッシュ）
 
 ## できたこと（ユーザー決定は SPEC.md §2・§8d）

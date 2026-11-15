@@ -67,16 +67,24 @@ export function isGpsOn() {
   return watchId !== null;
 }
 
-/* ==== startSim ==== 模擬飛行：指定の針路・速度・高度で1秒ごとに進める */
-export function startSim({ lat, lon, trk = 0, gs = 420, alt = 20000 }) {
+let simStep = null;
+
+/* ==== startSim ==== 模擬飛行：1秒ごとに進める。step があればそれが次の状態を返す（ルートの自動飛行。null を返したら動かさない）、無ければ指定の針路・速度でまっすぐ */
+export function startSim({ lat, lon, trk = 0, gs = 420, alt = 20000, step = null }) {
   stopGps();
   stopSim();
+  simStep = step;
   setOwn({ lat, lon, trk, gs, alt, source: 'sim' });
   setStatus('sim');
   simTimer = setInterval(() => {
-    const next = destination(state.own, state.own.trk, (state.own.gs * SIM_STEP_MS) / 3600000);
-    setOwn(next);
+    const next = simStep ? simStep(state.own) : destination(state.own, state.own.trk, (state.own.gs * SIM_STEP_MS) / 3600000);
+    if (next) setOwn(next);
   }, SIM_STEP_MS);
+}
+
+/* ==== setSimStep ==== 模擬飛行の進め方を替える（null＝今の針路・速度でまっすぐ。自動飛行を手で外したとき） */
+export function setSimStep(step) {
+  simStep = step;
 }
 
 export function updateSim(patch) {
@@ -84,7 +92,7 @@ export function updateSim(patch) {
 }
 
 export function stopSim() {
-  if (simTimer) { clearInterval(simTimer); simTimer = null; setStatus('off'); }
+  if (simTimer) { clearInterval(simTimer); simTimer = null; simStep = null; setStatus('off'); }
 }
 
 export function isSimOn() {

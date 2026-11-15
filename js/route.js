@@ -94,10 +94,27 @@ export function setActiveIdx(route, i) {
   saveRoutes();
 }
 
+/* ==== removePoint ==== 点を消す。DEP の飛行場を消したらその SID・TRANSITION、DST の飛行場を消したら STAR・TRANSITION・APP もルートから外す（手順の点も一緒に） */
 export function removePoint(route, index, list = 'points') {
-  route[list].splice(index, 1);
+  const target = route[list][index];
+  if (list === 'points') dropLinkedProcs(route, index);
+  route[list].splice(route[list].indexOf(target), 1);
   if (list === 'points') route.activeIdx = Math.min(Math.max(1, route.activeIdx), Math.max(1, route.points.length - 1));
   saveRoutes();
+}
+
+const DEP_ROLES = ['SID', 'SID_TR'];
+const ARR_ROLES = ['STAR_TR', 'STAR', 'APP'];
+
+/* ==== dropLinkedProcs ==== 消す点が DEP（最初の手順以外の点）か DST（最後の手順以外の点）なら、つながる手順の選択と点を外す（0.2.8） */
+function dropLinkedProcs(route, index) {
+  const p = route.points[index];
+  if (!p || p.proc) return;
+  const base = route.points.filter((q) => !q.proc);
+  const roles = [...(p === base[0] ? DEP_ROLES : []), ...(p === base.at(-1) ? ARR_ROLES : [])];
+  if (!roles.length) return;
+  roles.forEach((r) => { if (route.procs) route.procs[r] = null; });
+  route.points = route.points.filter((q) => q === p || !roles.includes(q.proc?.role));
 }
 
 export function movePoint(route, index, delta, list = 'points') {

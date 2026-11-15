@@ -4,7 +4,7 @@ import { state } from './state.js';
 const JST_OFFSET_MS = 9 * 3600 * 1000;
 
 export function now() {
-  return Date.now() + (state.settings.timeOffsetMs || 0);
+  return Date.now() + (state.settings.timeOffsetMs || 0) + (state.simClockMs || 0);   // デモの早送り分も足す
 }
 
 function pad(n) {

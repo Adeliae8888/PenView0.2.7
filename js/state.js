@@ -37,6 +37,7 @@ export const state = {
   fuelPrompt: null,                  // 通過した STPT の燃料入力待ち {idx, name}
   alert: null,                       // 'joker' | 'bingo'
   gpsStatus: 'off',                  // off | acquiring | ok | lost | denied | sim
+  simClockMs: 0,                     // デモの早送り・一時停止で進めた（止めた）時間。保存しない（0.2.8）
   data: { land: null, airspace: [], airports: [], navaids: [], obstacles: [] },
 };
 

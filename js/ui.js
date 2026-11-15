@@ -11,6 +11,7 @@ import { now, formatClock } from './clock.js';
 import { COORD_FORMATS, formatLatLon, formatBe, parseCoordinate } from './coords.js';
 import { bearingTrue, distanceNm, toMagnetic, formatBearing, formatVariation } from './geo.js';
 import { startGps, stopGps, isGpsOn, startSim, stopSim, isSimOn, updateSim, setManualOwn } from './gps.js';
+import { startRouteDemo, stopRouteDemo, demoState, setDemoSpeed, toggleDemoPause } from './demo.js';
 import { esc, fmtLimit } from './map-render.js';
 import { editingOpen } from './ui-proc.js';
 
@@ -148,6 +149,7 @@ export function renderSettings() {
   const s = state.settings;
   $('gpsToggle').textContent = isGpsOn() ? 'GPS 受信停止' : 'GPS 受信開始';
   $('simToggle').textContent = isSimOn() ? '模擬飛行 停止' : '模擬飛行 開始';
+  $('simMode').disabled = isSimOn();
   $('gpsDetail').textContent = GPS_LABELS[state.gpsStatus];
   $('bullName').value = s.bullseye.name || '';
   $('bullInput').placeholder = formatLatLon(s.bullseye.lat, s.bullseye.lon, s.coordFormat);
@@ -242,14 +244,40 @@ function bindTimeSettings() {
   }));
 }
 
+/* ==== renderDemoBar ==== デモの自動飛行中だけ地図の上に：早送り・一時停止・停止と、今の状態（離陸滑走・待機・接地） */
+export function renderDemoBar() {
+  const d = demoState();
+  $('demoBar').classList.toggle('hidden', !d.on);
+  if (!d.on) return;
+  document.querySelectorAll('[data-demo-speed]').forEach((b) => b.classList.toggle('active', Number(b.dataset.demoSpeed) === d.speed));
+  $('demoPause').textContent = d.paused ? '▶' : 'II';
+  $('demoPause').setAttribute('aria-label', d.paused ? '再開' : '一時停止');
+  $('demoPhase').textContent = d.paused ? '一時停止' : ({ roll: '離陸滑走', hold: '待機', landing: '着陸滑走', landed: '接地' }[d.phase] || '');
+}
+
+/* ==== bindDemoBar ==== */
+function bindDemoBar() {
+  document.querySelectorAll('[data-demo-speed]').forEach((b) => b.addEventListener('click', () => setDemoSpeed(Number(b.dataset.demoSpeed))));
+  $('demoPause').addEventListener('click', toggleDemoPause);
+  $('demoStop').addEventListener('click', () => { stopRouteDemo(); renderSettings(); });
+}
+
 function bindSettingsSheet(actions) {
   bindTimeSettings();
+  bindDemoBar();
   bindNavDataSection();
   bindAipSection();
   bindIoSection();
   $('gpsToggle').addEventListener('click', () => { if (isGpsOn()) stopGps(); else startGps(); renderSettings(); });
   $('simToggle').addEventListener('click', () => {
-    if (isSimOn()) { stopSim(); renderSettings(); return; }
+    if (isSimOn()) { stopRouteDemo(); stopSim(); renderSettings(); return; }
+    $('simStatus').textContent = '';
+    if ($('simMode').value === 'route') {
+      const err = startRouteDemo({ gs: Number($('simGs').value), alt: Number($('simAlt').value) });
+      if (err) $('simStatus').textContent = err; else $('settingsSheet').classList.remove('open');
+      renderSettings();
+      return;
+    }
     const start = Number.isFinite(state.own.lat) ? state.own : actions.center();
     const v = currentVariation().value;
     startSim({ lat: start.lat, lon: start.lon, trk: (Number($('simTrk').value) + v + 360) % 360, gs: Number($('simGs').value), alt: Number($('simAlt').value) });
@@ -257,7 +285,9 @@ function bindSettingsSheet(actions) {
   });
   ['simTrk', 'simGs', 'simAlt'].forEach((id) => $(id).addEventListener('change', () => {
     const v = currentVariation().value;
+    if (demoState().on) { stopRouteDemo({ keepFlying: true }); $('simMode').value = 'manual'; }   // 手で変えたら自動は外れる
     updateSim({ trk: (Number($('simTrk').value) + v + 360) % 360, gs: Number($('simGs').value), alt: Number($('simAlt').value) });
+    renderSettings();
   }));
   $('bullApply').addEventListener('click', () => {
     const text = $('bullInput').value.trim();

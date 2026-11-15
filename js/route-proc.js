@@ -20,7 +20,12 @@ export function destPoint(route) {
   return route.points.find((p) => p.role === 'dst') || route.points.at(-1) || null;
 }
 
-const roleAd = (route, role) => (role === 'SID' || role === 'SID_TR' ? route.points[0] : destPoint(route))?.name;
+// DEP＝最初の手順以外の点、DST＝目的地（手順の点が先頭・末尾に残っていても飛行場を見る）
+const roleAd = (route, role) => {
+  const base = route.points.filter((p) => !p.proc);
+  const dst = route.points.find((p) => p.role === 'dst') || base.at(-1);
+  return (role === 'SID' || role === 'SID_TR' ? base[0] : dst)?.name;
+};
 
 /* ==== fitsRole ==== 手順がその役割に使えるか（種別・飛行場・TRANSITION は親が選ばれている手順か） */
 function fitsRole(route, role, p) {

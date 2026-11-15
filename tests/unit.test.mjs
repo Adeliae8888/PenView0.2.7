@@ -821,3 +821,69 @@ test('チャートから読み込んだ手順は確認するまで未確認（0.
   assert.equal(isUnverified({ id: 'pr-abc' }), false, '自分で作った手順');
   assert.equal(isUnverified({ id: 'pr-abc', verified: false }), true, '未確認の手順のコピー');
 });
+
+test('デモの自動飛行：線をなぞる・フライバイ・ログの高度・離陸と着陸（0.2.8）', async () => {
+  const A = await import('../js/autopilot.js');
+  // 東へ 20nm → 北へ 20nm の L 字。360kt で角を回り込む
+  const p0 = { lat: 35, lon: 139 };
+  const p1 = destination(p0, 90, 20);
+  const p2 = destination(p1, 0, 20);
+  const path = [p0, p1, p2];
+  const cum = A.pathCum(path);
+  const env = { path, cum, legEnd: cum[1], target: () => ({ alt: 10000, gs: 360 }), td: null };
+  let s = { ...p0, trk: 90, gs: 360, alt: 8000, phase: 'air', pos: 0 };
+  let maxOff = 0;
+  let minToCorner = Infinity;
+  for (let t = 0; t < 400; t += 1) {
+    s = A.apStep(s, env, 1);
+    const nr = A.nearestOnPath(path, cum, s, 0, 10);
+    maxOff = Math.max(maxOff, distanceNm(s, A.pointAlong(path, cum, nr.along)));
+    minToCorner = Math.min(minToCorner, distanceNm(s, p1));
+  }
+  assert.ok(maxOff < 1.2, `線から大きく外れない（${maxOff.toFixed(2)}nm）`);
+  assert.ok(minToCorner > 0.3 && minToCorner < 2, `角の手前から回り込む（フライバイ・最接近 ${minToCorner.toFixed(2)}nm）`);
+  near(((s.trk + 180) % 360) - 180, 0, 2, '2 本目の線の向き（北）');
+  near(s.alt, 10000, 1, 'ログの高度へ');
+  // ログの区間：上昇 → 巡航 → 降下（scaled は上昇率で延ばす）
+  const leg = { dist: 60, segs: [{ phase: 'climb', dist: 10, gs: 300, time: 10 / 300, altStart: 0, altEnd: 10000 }, { phase: 'cruise', dist: 40, gs: 420, time: 40 / 420, altStart: 10000, altEnd: 10000 }, { phase: 'descent', dist: 10, gs: 350, time: 10 / 350, altStart: 10000, altEnd: 2000 }] };
+  near(A.legProfile(leg, 5, {}).alt, 5000, 1e-6);
+  assert.equal(A.legProfile(leg, 30, {}).gs, 420);
+  near(A.legProfile(leg, 55, {}).alt, 6000, 1e-6);
+  // 離陸滑走：止まった状態から浮くまで、滑走路の向きのまま
+  const r = A.rollStart(path);
+  let g = { lat: r.lat, lon: r.lon, trk: r.trk, gs: 0, alt: 100, phase: 'roll', pos: 0 };
+  let t = 0;
+  while (g.phase === 'roll' && t < 100) { g = A.apStep(g, { ...env, target: () => ({ alt: 3000, gs: 250 }) }, 1); t += 1; }
+  assert.equal(g.phase, 'air');
+  near(t, A.ROTATE_KT / A.ROLL_ACCEL_KT_S, 1, '浮くまでの秒数');
+  near(distanceNm(g, p0), 0, 0.05, '浮くのは経路の始まり（滑走路端）');
+  // 着陸：接地点で 3° の進入角 → 接地 → 減速して止まる
+  const td = destination(p0, 90, 8);
+  let l = { ...p0, trk: 90, gs: 150, alt: 3000, phase: 'air', pos: 0 };
+  const lenv = { path: [p0, td, destination(td, 90, 5)], cum: null, legEnd: 8, target: () => ({ alt: 3000, gs: 150 }), td, tdElev: 30 };
+  lenv.cum = A.pathCum(lenv.path);
+  const alts = [];
+  for (let k = 0; k < 600 && l.phase !== 'landed'; k += 1) { l = A.apStep(l, lenv, 1); alts.push([distanceNm(l, td), l.alt, l.phase]); }
+  assert.equal(l.phase, 'landed');
+  assert.equal(l.gs, 0);
+  assert.equal(l.alt, 30);
+  const at4 = alts.find(([dd, , ph]) => dd < 4 && ph === 'air');
+  assert.ok(at4[1] <= 30 + 318 * at4[0] + 20, '進入角より上に出ない（1 秒分の遅れまで）');
+});
+
+test('ルートから飛行場を消すと、つながる手順も外れる（0.2.8）', async () => {
+  const Rt = await import('../js/route.js');
+  const mk = (name, extra = {}) => ({ id: `x-${name}`, name, lat: 36, lon: 140, alt: 0, ...extra });
+  const route = {
+    procs: { SID: 'sid', SID_TR: 'tr', STAR_TR: null, STAR: 'star', APP: 'app' }, activeIdx: 1, alternate: [], flight: {},
+    points: [mk('RJAH'), mk('S1', { proc: { id: 'sid', role: 'SID' } }), mk('T1', { proc: { id: 'tr', role: 'SID_TR' } }), mk('WP'), mk('A1', { proc: { id: 'star', role: 'STAR' } }), mk('P1', { proc: { id: 'app', role: 'APP' } }), mk('RJSN')],
+  };
+  Rt.removePoint(route, 0);
+  assert.deepEqual(route.points.map((p) => p.name), ['WP', 'A1', 'P1', 'RJSN'], 'DEP を消す → SID・TRANSITION の点も消える');
+  assert.equal(route.procs.SID, null);
+  assert.equal(route.procs.SID_TR, null);
+  assert.equal(route.procs.STAR, 'star', '到着側はそのまま');
+  Rt.removePoint(route, 3);
+  assert.deepEqual(route.points.map((p) => p.name), ['WP'], 'DST を消す → STAR・APP の点も消える');
+  assert.deepEqual([route.procs.STAR, route.procs.APP], [null, null]);
+});

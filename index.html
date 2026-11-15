@@ -56,6 +56,11 @@
     <button type="button" id="directExec" class="btn primary">EXECUTE</button>
     <button type="button" id="directCancel" class="btn">CANCEL</button>
   </div>
+  <div id="demoBar" class="demo-bar hidden" role="toolbar" aria-label="デモの自動飛行">
+    <span class="demo-tag">DEMO</span><span id="demoPhase" class="demo-phase"></span>
+    <button type="button" class="btn sm" data-demo-speed="1">×1</button><button type="button" class="btn sm" data-demo-speed="2">×2</button><button type="button" class="btn sm" data-demo-speed="4">×4</button><button type="button" class="btn sm" data-demo-speed="8">×8</button>
+    <button type="button" id="demoPause" class="btn sm" aria-label="一時停止">II</button><button type="button" id="demoStop" class="btn sm danger" aria-label="停止">■</button>
+  </div>
   <div id="fuelPrompt" class="fuel-prompt hidden"><button type="button" id="fuelPromptText" class="btn"></button><button type="button" id="fuelPromptClose" class="btn" aria-label="閉じる">×</button></div>
   <div id="fuelAlert" class="fuel-alert hidden" role="alert"><b id="fuelAlertText"></b><button type="button" id="fuelAlertAck" class="btn">ACK</button></div>
 
@@ -81,12 +86,16 @@
       </div>
       <div class="row"><label><input type="checkbox" id="keepAwake" /> 画面を消さない（Wake Lock）</label><span id="wakeStatus" class="muted"></span></div>
       <div class="row wrap">
+        <label>デモ <select id="simMode"><option value="manual">手動（針路・速度・高度）</option><option value="route">ルートを自動で飛ぶ</option></select></label>
+      </div>
+      <div class="row wrap">
         <label>TRK°M <input id="simTrk" type="number" min="0" max="359" step="1" value="090" inputmode="numeric" /></label>
         <label>GS kt <input id="simGs" type="number" min="0" max="1200" step="10" value="420" inputmode="numeric" /></label>
         <label>ALT ft <input id="simAlt" type="number" min="0" max="60000" step="500" value="20000" inputmode="numeric" /></label>
         <button type="button" id="simToggle" class="btn">模擬飛行 開始</button>
       </div>
-      <p class="muted">模擬飛行は地図中心（または自機位置）から開始します。PC での確認用。</p>
+      <p class="muted">手動：地図中心（または自機位置）から、入れた針路・速度・高度でまっすぐ。<br>ルートを自動で飛ぶ：アクティブレグの始点から（1 番目のレグなら離陸滑走から）。速度・高度はフライトログ、ログが無ければ上の GS・ALT。手で針路などを変えると自動は外れます。</p>
+      <p id="simStatus" class="muted"></p>
     </section>
 
     <section class="group">

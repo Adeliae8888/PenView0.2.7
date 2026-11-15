@@ -4,7 +4,7 @@ import { setStoreErrorHandler, requestPersistence, saveLater } from './store.js'
 import { createProjection } from './projection.js';
 import { createView, attachGestures } from './map-view.js';
 import { buildGeoLayer, applyGeoVisibility, drawOverlay, scaleBar, hitTest, nearPoints } from './map-render.js';
-import { bindUi, renderDataPanel, renderTopBar, renderInfo, renderSettings, renderCursor, renderPickList, showBanner } from './ui.js';
+import { bindUi, renderDataPanel, renderTopBar, renderInfo, renderSettings, renderCursor, renderPickList, showBanner, renderDemoBar } from './ui.js';
 import { setManualOwn } from './gps.js';
 import { loadAircraft } from './aircraft.js';
 import { loadRoutes, activeRoute } from './route.js';
@@ -223,6 +223,7 @@ function wireEvents() {
   on('alert', renderNavOverlays);
   setInterval(() => { renderNavOverlays(); renderDataPanel(); }, 1000);
   on('tick', () => { renderDataPanel(); requestDraw(); });
+  on('demo', renderDemoBar);
   on('gpsStatus', () => { renderTopBar(); renderDataPanel(); if ($('settingsSheet').classList.contains('open')) renderSettings(); });
   on('selection', () => { renderInfo(lastHits); requestDraw(); });
   on('settings', () => {
